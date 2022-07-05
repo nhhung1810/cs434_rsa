@@ -1,11 +1,57 @@
 #include <stdio.h>
 #include <openssl/bn.h>
+#include <string.h>
 
 void printBN(char *msg, BIGNUM *a)
 {
     char *number_str = BN_bn2hex(a);
-    printf("%s 0x%s\n", msg, number_str);
+    printf("%s 0x%s\n\n", msg, number_str);
     OPENSSL_free(number_str);
+}
+
+void printDesc(char *msg)
+{
+    printf("\n%s\n", "##############################################");
+    printf("%s\n", msg);
+    printf("%s\n\n", "##############################################");
+}
+
+int hexToInt(char c)
+{
+    if (c >= 97)
+        c = c - 32;
+    int firstDigit = c / 16 - 3;
+    int secondDigit = c % 16;
+    int res = firstDigit * 10 + secondDigit;
+    if (res > 9)
+        res--;
+    return res;
+}
+
+int hexToASCII(const char c, const char d)
+{
+    int high = hexToInt(c) * 16;
+    int low = hexToInt(d);
+    return high + low;
+}
+
+void printASCII(const char *st)
+{
+    int length = strlen(st);
+    if (length % 2 != 0)
+    {
+        return;
+    }
+    int i;
+    char buffer = 0;
+    for (i = 0; i < length; i++)
+    {
+        if (i % 2 != 0)
+            printf("%c", hexToASCII(buffer, st[i]));
+        else
+            buffer = st[i];
+    }
+    printf("\n\n");
 }
 
 BIGNUM *make_rsa_private_key(BIGNUM *p, BIGNUM *q, BIGNUM *e)
@@ -70,7 +116,7 @@ BIGNUM *sign(BIGNUM *msg, BIGNUM *d, BIGNUM *n)
 int verify(BIGNUM *msg, BIGNUM *signature, BIGNUM *e, BIGNUM *n)
 {
     BIGNUM *original_msg = encrypt(signature, e, n);
-    printBN("omsg", original_msg);
+    printBN("Original Message: ", original_msg);
     return BN_cmp(msg, original_msg) == 0 ? 1 : 0;
 }
 
@@ -89,7 +135,8 @@ void exercise_1()
 
     BIGNUM *private_key = make_rsa_private_key(p, q, e);
 
-    printBN("RSA Private Key", private_key);
+    printDesc("TASK 1: Deriving the Private Key");
+    printBN("RSA Private Key: ", private_key);
 
     BN_CTX_free(ctx);
 }
@@ -111,6 +158,12 @@ void exercise_2()
 
     BIGNUM *encrypted = encrypt(msg, e, n);
 
+    printDesc("TASK 2: Encrypting a Message");
+    printBN("Encrypted message: ", encrypted);
+    printf("%s", "Decrypted message: ");
+    BIGNUM *decrypted = decrypt(encrypted, d, n);
+    printASCII(BN_bn2hex(decrypted));
+
     BN_CTX_free(ctx);
 }
 
@@ -131,6 +184,9 @@ void exercise_3()
 
     // Result after decrypt and convert from hex is Password is dees
     BIGNUM *decrypted = decrypt(C, d, n);
+    printDesc("TASK 3: Decrypting a Message");
+    printf("%s", "Decrypted message: ");
+    printASCII(BN_bn2hex(decrypted));
 
     BN_CTX_free(ctx);
 }
@@ -143,14 +199,22 @@ void exercise_4()
     BIGNUM *e = BN_new();
     BIGNUM *d = BN_new();
     BIGNUM *msg = BN_new();
+    BIGNUM *msg2 = BN_new();
 
     BN_hex2bn(&n, "DCBFFE3E51F62E09CE7032E2677A78946A849DC4CDDE3A4D0CB81629242FB1A5");
     BN_hex2bn(&e, "010001");
     BN_hex2bn(&d, "74D806F9F3A62BAE331FFE3F0A68AFE35B3D2E4794148AACBC26AA381CD7D30D");
     BN_hex2bn(&msg, "4D203D2049206F776520796F752024323030302E");
+    BN_hex2bn(&msg2, "4D203D2049206F776520796F752024333030302E");
 
     BIGNUM *signature = sign(msg, d, n);
-    printBN("signature", signature);
+    BIGNUM *signature2 = sign(msg2, d, n);
+    printDesc("TASK 4: Signing a Message");
+    printBN("Signature ($2000): ", signature);
+    printf("%s", "Decrypted message ($2000): ");
+    BIGNUM *decrypted = decrypt(signature, e, n);
+    printASCII(BN_bn2hex(decrypted));
+    printBN("Signature ($3000): ", signature2);
 
     BN_CTX_free(ctx);
 }
@@ -168,8 +232,9 @@ void exercise_5()
     BIGNUM *n = BN_new();
     BN_hex2bn(&n, "AE1CD4DC432798D933779FBD46C6E1247F0CF1233595113AA51B450F18116115");
 
+    printDesc("TASK 5: Verifying a Signature");
     int a = verify(M, S, e, n);
-    printf("Verify result: %d\n", a);
+    printf("Verify result: %d\n\n", a);
     BN_CTX_free(ctx);
 }
 
@@ -186,6 +251,7 @@ void exercise_6()
     BIGNUM *n = BN_new();
     BN_hex2bn(&n, "bb021528ccf6a094d30f12ec8d5592c3f882f199a67a4288a75d26aab52bb9c54cb1af8e6bf975c8a3d70f4794145535578c9ea8a23919f5823c42a94e6ef53bc32edb8dc0b05cf35938e7edcf69f05a0b1bbec094242587fa3771b313e71cace19befdbe43b45524596a9c153ce34c852eeb5aeed8fde6070e2a554abb66d0e97a540346b2bd3bc66eb66347cfa6b8b8f572999f830175dba726ffb81c5add286583d17c7e709bbf12bf786dcc1da715dd446e3ccad25c188bc60677566b3f118f7a25ce653ff3a88b647a5ff1318ea9809773f9d53f9cf01e5f5a6701714af63a4ff99b3939ddc53a706fe48851da169ae2575bb13cc5203f5ed51a18bdb15");
 
+    printDesc("TASK 6: Manually Verifying an X.509 Certificate");
     int a = verify(M, S, e, n);
     printf("Verify result: %d\n", a);
 
